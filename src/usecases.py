@@ -347,6 +347,71 @@ def svartelist_bruker(epost):
     finally:
         conn.close()
 
+
+def legg_til_prikker_for_johnny():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT bruker_id
+            FROM bruker
+            WHERE epost = ?
+            """,
+            ("johnny@stud.ntnu.no",)
+        )
+        bruker = cursor.fetchone()
+
+        if not bruker:
+            print("Fant ikke johnny@stud.ntnu.no i databasen.")
+            return
+
+        bruker_id = bruker[0]
+
+        cursor.execute(
+            """
+            SELECT gruppetime_id
+            FROM gruppetime
+            ORDER BY start_tid DESC
+            LIMIT 3
+            """
+        )
+        gruppetimer = cursor.fetchall()
+
+        if len(gruppetimer) < 3:
+            print("Fant ikke tre gruppetimer for å registrere prikker.")
+            return
+
+        for gruppetime_id, in gruppetimer:
+            cursor.execute(
+                """
+                INSERT INTO booker (
+                    gruppetime_id,
+                    bruker_id,
+                    booket_tid,
+                    sjekket_inn_tid,
+                    booking_status,
+                    kansellert_tid
+                )
+                VALUES (?, ?, CURRENT_TIMESTAMP, NULL, 'ikke_møtt', NULL)
+                ON CONFLICT(gruppetime_id, bruker_id) DO UPDATE SET
+                    sjekket_inn_tid = NULL,
+                    booking_status = 'ikke_møtt',
+                    kansellert_tid = NULL
+                """,
+                (gruppetime_id, bruker_id)
+            )
+
+        conn.commit()
+
+    except Exception as e:
+        conn.rollback()
+        print("Feil ved registrering av prikker:", e)
+
+    finally:
+        conn.close()
+
 def mest_aktive(aar, maaned):
     conn = get_connection()
     cursor = conn.cursor()

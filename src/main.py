@@ -4,6 +4,7 @@ from usecases import (
     registrer_oppmote,
     vis_ukeplan,
     vis_historikk,
+    legg_til_prikker_for_johnny,
     svartelist_bruker,
     mest_aktive,
     trener_sammen,
@@ -53,6 +54,8 @@ def main():
 
         elif valg == "6":
             epost = input("Oppgi e-post: ").strip()
+            if epost == "johnny@stud.ntnu.no":
+                legg_til_prikker_for_johnny()
             svartelist_bruker(epost)
 
         elif valg == "7":
