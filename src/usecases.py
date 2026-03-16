@@ -70,16 +70,17 @@ def vis_gruppetimer():
     conn.close()
 
 
-def booking_trening(epost, gruppetime_id):
+def booking_trening(epost, aktivitet, start_tid):
     conn = get_connection()
     cursor = conn.cursor()
 
     try:
-        # Finn bruker
-        cursor.execute(
-            "SELECT bruker_id FROM bruker WHERE epost = ?",
-            (epost,)
-        )
+        # 1. Finn bruker
+        cursor.execute("""
+            SELECT bruker_id
+            FROM bruker
+            WHERE epost = ?
+        """, (epost,))
         bruker = cursor.fetchone()
 
         if not bruker:
@@ -88,44 +89,71 @@ def booking_trening(epost, gruppetime_id):
 
         bruker_id = bruker[0]
 
-        # Finn gruppetime
+        # 2. Finn alle gruppetimer som matcher aktivitet + starttid
         cursor.execute("""
-            SELECT g.gruppetime_id, g.start_tid, g.slutt_tid, s.kapasitet
+            SELECT g.gruppetime_id, t.navn, g.start_tid, g.slutt_tid, s.kapasitet
             FROM gruppetime g
+            JOIN aktivitet a ON g.aktivitet_id = a.aktivitet_id
             JOIN sal s ON g.sal_id = s.sal_id
-            WHERE g.gruppetime_id = ?
-        """, (gruppetime_id,))
-        gruppetime = cursor.fetchone()
+            JOIN treningssenter t ON s.treningssenter_id = t.treningssenter_id
+            WHERE LOWER(a.navn) = LOWER(?)
+              AND g.start_tid = ?
+            ORDER BY t.navn
+        """, (aktivitet, start_tid))
 
-        if not gruppetime:
-            print("Gruppetime finnes ikke.")
+        treff = cursor.fetchall()
+
+        if len(treff) == 0:
+            print("Treningen finnes ikke.")
             return
 
-        gruppetime_id, start_tid, slutt_tid, kapasitet = gruppetime
+        # 3. Hvis flere treff: la brukeren velge gruppetime_id
+        if len(treff) > 1:
+            print("Flere treninger matcher aktivitet og tidspunkt:")
+            for gruppetime_id, senter_navn, start, slutt, kapasitet in treff:
+                print(f"{gruppetime_id} | {aktivitet} | {start} | {slutt} | {senter_navn}")
 
-        # Sjekk om brukeren allerede er booket
+            valgt_id = int(input("Oppgi gruppetime-ID for timen du vil booke: ").strip())
+
+            valgt_treff = None
+            for rad in treff:
+                if rad[0] == valgt_id:
+                    valgt_treff = rad
+                    break
+
+            if valgt_treff is None:
+                print("Ugyldig gruppetime-ID blant treffene.")
+                return
+
+            gruppetime_id, senter_navn, start, slutt, kapasitet = valgt_treff
+
+        else:
+            gruppetime_id, senter_navn, start, slutt, kapasitet = treff[0]
+
+        # 4. Sjekk om brukeren allerede er booket
         cursor.execute("""
             SELECT 1
             FROM booker
-            WHERE gruppetime_id = ? AND bruker_id = ?
+            WHERE gruppetime_id = ?
+              AND bruker_id = ?
         """, (gruppetime_id, bruker_id))
 
         if cursor.fetchone():
             print("Bruker er allerede booket på denne timen.")
             return
 
-        # Sjekk kapasitet
+        # 5. Sjekk kapasitet
         cursor.execute("""
             SELECT COUNT(*)
             FROM booker
             WHERE gruppetime_id = ?
-            AND booking_status IN ('booket', 'møtt')
+              AND booking_status IN ('booket', 'møtt')
         """, (gruppetime_id,))
-        antall_booket = cursor.fetchone()[0]
 
+        antall_booket = cursor.fetchone()[0]
         status = "booket" if antall_booket < kapasitet else "venteliste"
 
-        # Opprett booking
+        # 6. Opprett booking
         cursor.execute("""
             INSERT INTO booker (gruppetime_id, bruker_id, booket_tid, booking_status)
             VALUES (?, ?, CURRENT_TIMESTAMP, ?)
@@ -133,6 +161,7 @@ def booking_trening(epost, gruppetime_id):
 
         conn.commit()
         print(f"Booking registrert med status: {status}")
+        print(f"Gruppetime: {aktivitet} | {start} | {senter_navn}")
 
     except Exception as e:
         conn.rollback()

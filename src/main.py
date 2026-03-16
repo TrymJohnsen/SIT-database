@@ -33,8 +33,9 @@ def main():
         if valg == "2":
             vis_gruppetimer()
             epost = input("\nOppgi e-post: ").strip()
-            gruppetime_id = int(input("Oppgi gruppetime-ID: ").strip())
-            booking_trening(epost, gruppetime_id)
+            aktivitet = input("Oppgi aktivitet: ").strip().title()
+            start_tid = input("Oppgi start-tid (YYYY-MM-DD HH:MM:SS): ").strip()
+            booking_trening(epost, aktivitet, start_tid)
 
         elif valg == "3":
             epost = input("Oppgi e-post: ").strip()
