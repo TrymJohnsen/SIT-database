@@ -1,28 +1,204 @@
+import os
 import sqlite3
-
+from datetime import datetime, timedelta
 def get_connection():
     conn = sqlite3.connect("trening.db")
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
-#conn er databaseforbindelsen, cursor er verktøyet for å utføre SQL-kommandoer
+DB_PATH = "trening.db"
+SCHEMA_PATH = "sql/schema.sql"
+SEED_PATH = "sql/seed_data.sql"
+
+
 def setup_database():
+    if os.path.exists(DB_PATH):
+        os.remove(DB_PATH)
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA foreign_keys = ON")
+
+    try:
+        with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
+            schema_sql = f.read()
+
+        with open(SEED_PATH, "r", encoding="utf-8") as f:
+            seed_sql = f.read()
+
+        conn.executescript(schema_sql)
+        conn.executescript(seed_sql)
+
+        conn.commit()
+        print("Databasen ble resatt og initialisert på nytt.")
+
+    except Exception as e:
+        conn.rollback()
+        print(f"Feil ved oppsett av database: {e}")
+
+    finally:
+        conn.close()
+
+
+def booking_trening(epost, aktivitet, start_tid):
+
     conn = get_connection()
     cursor = conn.cursor()
 
-    print("Setup database er ikke implementert ennå.")
+    try:
 
-    conn.close()
+        # 1 Finn bruker
+        cursor.execute(
+            "SELECT bruker_id FROM bruker WHERE epost = ?",
+            (epost,)
+        )
+
+        bruker = cursor.fetchone()
+
+        if not bruker:
+            print("Bruker finnes ikke.")
+            return
+
+        bruker_id = bruker[0]
 
 
-def booking_trening(epost, gruppetime_id):
-    print(f"Booking av gruppetime {gruppetime_id} for {epost} er ikke implementert ennå.")
+        # 2 Finn gruppetime
+        query = """
+        SELECT g.gruppetime_id
+        FROM gruppetime g
+        JOIN aktivitet a ON g.aktivitet_id = a.aktivitet_id
+        JOIN sal s ON g.sal_id = s.sal_id
+        JOIN treningssenter t ON s.treningssenter_id = t.treningssenter_id
+        WHERE a.navn = ?
+        AND g.start_tid = ?
+        AND t.navn LIKE '%Øya%'
+        """
 
+        cursor.execute(query, (aktivitet, start_tid))
+
+        gruppetime = cursor.fetchone()
+
+        if not gruppetime:
+            print("Treningen finnes ikke.")
+            return
+
+        gruppetime_id = gruppetime[0]
+
+
+        # 3 Sjekk om allerede booket
+        cursor.execute(
+            """
+            SELECT *
+            FROM booker
+            WHERE gruppetime_id = ?
+            AND bruker_id = ?
+            """,
+            (gruppetime_id, bruker_id)
+        )
+
+        if cursor.fetchone():
+            print("Bruker er allerede booket på denne timen.")
+            return
+        
+
+        # 4 Opprett booking
+        cursor.execute(
+            """
+            INSERT INTO booker
+            (gruppetime_id, bruker_id, booket_tid, booking_status)
+            VALUES (?, ?, CURRENT_TIMESTAMP, 'booket')
+            """,
+            (gruppetime_id, bruker_id)
+        )
+
+        conn.commit()
+
+        print("Booking registrert.")
+
+    except Exception as e:
+        conn.rollback()
+        print("Feil:", e)
+
+    finally:
+        conn.close()
 
 def registrer_oppmote(epost, gruppetime_id):
-    print(f"Registrering av oppmøte for {epost} på gruppetime {gruppetime_id} er ikke implementert ennå.")
+    conn = get_connection()
+    cursor = conn.cursor()
 
+    try:
+        # 1 Finn bruker
+        cursor.execute(
+            "SELECT bruker_id FROM bruker WHERE epost = ?",
+            (epost,)
+        )
+        bruker = cursor.fetchone()
+
+        if not bruker:
+            print("Bruker finnes ikke.")
+            return
+
+        bruker_id = bruker[0]
+
+        # 2 Sjekk om booking finnes + hent starttid
+        cursor.execute(
+            """
+            SELECT b.booking_status, g.start_tid
+            FROM booker b
+            JOIN gruppetime g ON b.gruppetime_id = g.gruppetime_id
+            WHERE b.gruppetime_id = ?
+            AND b.bruker_id = ?
+            """,
+            (gruppetime_id, bruker_id)
+        )
+
+        booking = cursor.fetchone()
+
+        if not booking:
+            print("Brukeren har ikke booket denne treningen.")
+            return
+
+        status = booking[0]
+        start_tid = booking[1]
+
+        if status == "kansellert":
+            print("Kan ikke registrere oppmøte på en kansellert booking.")
+            return
+
+        if status == "møtt":
+            print("Oppmøte er allerede registrert.")
+            return
+
+        # 3 Sjekk 5-minuttersregel
+        start_dt = datetime.fromisoformat(start_tid)
+        frist = start_dt - timedelta(minutes=5)
+        now = datetime.now()
+
+        if now > frist:
+            print("Oppmøte må registreres senest 5 minutter før start.")
+            return
+
+        # 4 Registrer oppmøte
+        cursor.execute(
+            """
+            UPDATE booker
+            SET booking_status = 'møtt',
+                sjekket_inn_tid = CURRENT_TIMESTAMP
+            WHERE gruppetime_id = ?
+            AND bruker_id = ?
+            """,
+            (gruppetime_id, bruker_id)
+        )
+
+        conn.commit()
+        print("Oppmøte registrert.")
+
+    except Exception as e:
+        conn.rollback()
+        print("Feil ved registrering av oppmøte:", e)
+
+    finally:
+        conn.close()
 
 def vis_ukeplan(fra_dato, til_dato):
     conn = get_connection()
@@ -78,8 +254,76 @@ def vis_historikk(epost, fra_dato):
 
 
 def svartelist_bruker(epost):
-    print(f"Svartelisting for {epost} er ikke implementert ennå.")
+    conn = get_connection()
+    cursor = conn.cursor()
 
+    try:
+        # 1 Finn bruker
+        cursor.execute(
+            """
+            SELECT bruker_id
+            FROM bruker
+            WHERE epost = ?
+            """,
+            (epost,)
+        )
+
+        bruker = cursor.fetchone()
+
+        if not bruker:
+            print("Bruker finnes ikke.")
+            return
+
+        bruker_id = bruker[0]
+
+        # 2 Hent alle ikke_møtt-bookinger med starttid
+        cursor.execute(
+            """
+            SELECT g.start_tid
+            FROM booker b
+            JOIN gruppetime g ON b.gruppetime_id = g.gruppetime_id
+            WHERE b.bruker_id = ?
+            AND b.booking_status = 'ikke_møtt'
+            ORDER BY g.start_tid
+            """,
+            (bruker_id,)
+        )
+
+        rader = cursor.fetchall()
+
+        now = datetime.now()
+        grense = now - timedelta(days=30)
+
+        prikker_siste_30 = []
+
+        for rad in rader:
+            start_tid = datetime.fromisoformat(rad[0])
+            if start_tid >= grense:
+                prikker_siste_30.append(start_tid)
+
+        antall_prikker = len(prikker_siste_30)
+
+        print(f"Bruker: {epost}")
+        print(f"Antall prikker siste 30 dager: {antall_prikker}")
+
+        if antall_prikker < 3:
+            print("Brukeren er ikke utestengt.")
+            return
+
+        eldste_prikk = min(prikker_siste_30)
+        utestengt_til = eldste_prikk + timedelta(days=30)
+
+        if now < utestengt_til:
+            print("Brukeren er utestengt fra nettbooking.")
+            print("Utestengt til:", utestengt_til.strftime("%Y-%m-%d %H:%M:%S"))
+        else:
+            print("Brukeren er ikke lenger utestengt.")
+
+    except Exception as e:
+        print("Feil ved svartelisting:", e)
+
+    finally:
+        conn.close()
 
 def mest_aktive(aar, maaned):
     conn = get_connection()

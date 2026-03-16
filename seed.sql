@@ -128,11 +128,8 @@ INSERT INTO bruker (bruker_id, navn, epost, mobilnr) VALUES
 
 -- 11) Booker
 INSERT INTO booker (gruppetime_id, bruker_id, booket_tid, sjekket_inn_tid, booking_status, kansellert_tid) VALUES
-(1,1,'2026-03-13 13:00',NULL,'booket',NULL),
 (2,2,'2026-03-13 14:00','2026-03-16 17:55','møtt',NULL),
 (3,3,'2026-03-13 15:00','2026-03-16 18:55','møtt',NULL),
-(5,1,'2026-03-14 10:00',NULL,'booket',NULL),
-(7,1,'2026-03-15 10:00',NULL,'kansellert','2026-03-17 09:00'),
 (8,2,'2026-03-15 11:00',NULL,'venteliste',NULL);
 
 -- 12) Idrettslag / medlemmer / grupper
