@@ -1,4 +1,5 @@
 import sqlite3
+from pathlib import Path
 
 def get_connection():
     conn = sqlite3.connect("trening.db")
@@ -6,14 +7,40 @@ def get_connection():
     return conn
 
 
-#conn er databaseforbindelsen, cursor er verktøyet for å utføre SQL-kommandoer
 def setup_database():
-    conn = get_connection()
-    cursor = conn.cursor()
+    base_dir = Path(__file__).resolve().parent.parent
+    db_path = base_dir / "trening.db"
+    schema_path = base_dir / "schema.sql"
+    seed_path = base_dir / "seed.sql"
 
-    print("Setup database er ikke implementert ennå.")
+    if not schema_path.exists():
+        print("Fant ikke schema.sql.")
+        return
 
-    conn.close()
+    if not seed_path.exists():
+        print("Fant ikke seed.sql.")
+        return
+
+    if db_path.exists():
+        db_path.unlink()
+
+    conn = sqlite3.connect(db_path)
+    conn.execute("PRAGMA foreign_keys = ON")
+
+    try:
+        with schema_path.open(encoding="utf-8") as schema_file:
+            conn.executescript(schema_file.read())
+
+        with seed_path.open(encoding="utf-8") as seed_file:
+            conn.executescript(seed_file.read())
+
+        conn.commit()
+        print("Databasen er satt opp med schema og seed-data.")
+    except sqlite3.Error as error:
+        conn.rollback()
+        print(f"Feil ved oppsett av database: {error}")
+    finally:
+        conn.close()
 
 
 def booking_trening(epost, gruppetime_id):
