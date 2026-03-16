@@ -96,5 +96,4 @@ INSERT INTO gruppetime (gruppetime_id, start_tid, slutt_tid, publisert_tid, sal_
 INSERT INTO bruker (bruker_id, navn, epost, mobilnr) VALUES
 (1,'Johnny Student','johnny@stud.ntnu.no','55556666'),
 
-
 COMMIT;
