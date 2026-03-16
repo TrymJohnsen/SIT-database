@@ -34,7 +34,7 @@ def vis_ukeplan(fra_dato, til_dato):
     FROM gruppetime g
     JOIN aktivitet a ON g.aktivitet_id = a.aktivitet_id
     JOIN sal sa ON g.sal_id = sa.sal_id
-    JOIN treningssenter s ON sa.senter_id = s.senter_id
+    JOIN treningssenter s ON sa.treningssenter_id = s.treningssenter_id
     WHERE date(g.start_tid) BETWEEN ? AND ?
     ORDER BY g.start_tid
     """
@@ -60,10 +60,10 @@ def vis_historikk(epost, fra_dato):
     JOIN gruppetime g ON b.gruppetime_id = g.gruppetime_id
     JOIN aktivitet a ON g.aktivitet_id = a.aktivitet_id
     JOIN sal sa ON g.sal_id = sa.sal_id
-    JOIN treningssenter s ON sa.senter_id = s.senter_id
+    JOIN treningssenter s ON sa.treningssenter_id = s.treningssenter_id
     WHERE u.epost = ?
     AND date(g.start_tid) >= ?
-    AND b.status = 'møtt'
+    AND b.booking_status = 'møtt'
     ORDER BY g.start_tid
     """
 
@@ -93,7 +93,7 @@ def mest_aktive(aar, maaned):
     JOIN gruppetime g ON b.gruppetime_id = g.gruppetime_id
     WHERE strftime('%Y', g.start_tid) = ?
     AND strftime('%m', g.start_tid) = ?
-    AND b.status = 'møtt'
+    AND b.booking_status = 'møtt'
     GROUP BY u.bruker_id
     HAVING antall = (
         SELECT MAX(cnt)
@@ -103,7 +103,7 @@ def mest_aktive(aar, maaned):
             JOIN gruppetime g2 ON b2.gruppetime_id = g2.gruppetime_id
             WHERE strftime('%Y', g2.start_tid) = ?
             AND strftime('%m', g2.start_tid) = ?
-            AND b2.status = 'møtt'
+            AND b2.booking_status = 'møtt'
             GROUP BY b2.bruker_id
         )
     )
@@ -135,8 +135,8 @@ def trener_sammen(epost1, epost2):
         ON b2.bruker_id = u2.bruker_id
     WHERE u1.epost = ?
     AND u2.epost = ?
-    AND b1.status = 'møtt'
-    AND b2.status = 'møtt'
+    AND b1.booking_status = 'møtt'
+    AND b2.booking_status = 'møtt'
     """
 
     cursor.execute(query, (epost1, epost2))
