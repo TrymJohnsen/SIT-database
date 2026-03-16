@@ -3,14 +3,17 @@ import sqlite3
 
 from datetime import datetime, timedelta
 from pathlib import Path
+
+
 def get_connection():
     conn = sqlite3.connect("trening.db")
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
+
 DB_PATH = "trening.db"
-SCHEMA_PATH = "sql/schema.sql"
-SEED_PATH = "sql/seed_data.sql"
+SCHEMA_PATH = "schema.sql"
+SEED_PATH = "seed.sql"
 
 
 def setup_database():
@@ -41,19 +44,42 @@ def setup_database():
         conn.close()
 
 
-def booking_trening(epost, aktivitet, start_tid):
 
+
+
+def vis_gruppetimer():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    query = """
+    SELECT g.gruppetime_id, a.navn, g.start_tid, g.slutt_tid, t.navn
+    FROM gruppetime g
+    JOIN aktivitet a ON g.aktivitet_id = a.aktivitet_id
+    JOIN sal s ON g.sal_id = s.sal_id
+    JOIN treningssenter t ON s.treningssenter_id = t.treningssenter_id
+    ORDER BY g.start_tid
+    """
+
+    cursor.execute(query)
+    resultater = cursor.fetchall()
+
+    print("\nTilgjengelige gruppetimer:")
+    for gruppetime_id, aktivitet, start_tid, slutt_tid, senter in resultater:
+        print(f"{gruppetime_id} | {aktivitet} | {start_tid} | {slutt_tid} | {senter}")
+
+    conn.close()
+
+
+def booking_trening(epost, gruppetime_id):
     conn = get_connection()
     cursor = conn.cursor()
 
     try:
-
-        # 1 Finn bruker
+        # Finn bruker
         cursor.execute(
             "SELECT bruker_id FROM bruker WHERE epost = ?",
             (epost,)
         )
-
         bruker = cursor.fetchone()
 
         if not bruker:
@@ -62,65 +88,61 @@ def booking_trening(epost, aktivitet, start_tid):
 
         bruker_id = bruker[0]
 
-
-        # 2 Finn gruppetime
-        query = """
-        SELECT g.gruppetime_id
-        FROM gruppetime g
-        JOIN aktivitet a ON g.aktivitet_id = a.aktivitet_id
-        JOIN sal s ON g.sal_id = s.sal_id
-        JOIN treningssenter t ON s.treningssenter_id = t.treningssenter_id
-        WHERE a.navn = ?
-        AND g.start_tid = ?
-        AND t.navn LIKE '%Øya%'
-        """
-
-        cursor.execute(query, (aktivitet, start_tid))
-
+        # Finn gruppetime
+        cursor.execute("""
+            SELECT g.gruppetime_id, g.start_tid, g.slutt_tid, s.kapasitet
+            FROM gruppetime g
+            JOIN sal s ON g.sal_id = s.sal_id
+            WHERE g.gruppetime_id = ?
+        """, (gruppetime_id,))
         gruppetime = cursor.fetchone()
 
         if not gruppetime:
-            print("Treningen finnes ikke.")
+            print("Gruppetime finnes ikke.")
             return
 
-        gruppetime_id = gruppetime[0]
+        gruppetime_id, start_tid, slutt_tid, kapasitet = gruppetime
 
-
-        # 3 Sjekk om allerede booket
-        cursor.execute(
-            """
-            SELECT *
+        # Sjekk om brukeren allerede er booket
+        cursor.execute("""
+            SELECT 1
             FROM booker
-            WHERE gruppetime_id = ?
-            AND bruker_id = ?
-            """,
-            (gruppetime_id, bruker_id)
-        )
+            WHERE gruppetime_id = ? AND bruker_id = ?
+        """, (gruppetime_id, bruker_id))
+
         if cursor.fetchone():
             print("Bruker er allerede booket på denne timen.")
             return
-        
 
-        # 4 Opprett booking
-        cursor.execute(
-            """
-            INSERT INTO booker
-            (gruppetime_id, bruker_id, booket_tid, booking_status)
-            VALUES (?, ?, CURRENT_TIMESTAMP, 'booket')
-            """,
-            (gruppetime_id, bruker_id)
-        )
+        # Sjekk kapasitet
+        cursor.execute("""
+            SELECT COUNT(*)
+            FROM booker
+            WHERE gruppetime_id = ?
+            AND booking_status IN ('booket', 'møtt')
+        """, (gruppetime_id,))
+        antall_booket = cursor.fetchone()[0]
+
+        status = "booket" if antall_booket < kapasitet else "venteliste"
+
+        # Opprett booking
+        cursor.execute("""
+            INSERT INTO booker (gruppetime_id, bruker_id, booket_tid, booking_status)
+            VALUES (?, ?, CURRENT_TIMESTAMP, ?)
+        """, (gruppetime_id, bruker_id, status))
 
         conn.commit()
-
-        print("Booking registrert.")
+        print(f"Booking registrert med status: {status}")
 
     except Exception as e:
         conn.rollback()
-        print("Feil:", e)
+        print("Feil ved booking:", e)
 
     finally:
         conn.close()
+
+
+
 
 def registrer_oppmote(epost, gruppetime_id):
     conn = get_connection()
