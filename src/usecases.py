@@ -16,6 +16,31 @@ SCHEMA_PATH = "schema.sql"
 SEED_PATH = "seed.sql"
 
 
+def hent_prikker_siste_30_dager(cursor, bruker_id):
+    cursor.execute(
+        """
+        SELECT g.start_tid
+        FROM booker b
+        JOIN gruppetime g ON b.gruppetime_id = g.gruppetime_id
+        WHERE b.bruker_id = ?
+          AND b.booking_status = 'ikke_møtt'
+        ORDER BY g.start_tid
+        """,
+        (bruker_id,)
+    )
+
+    rader = cursor.fetchall()
+    grense = datetime.now() - timedelta(days=30)
+    prikker = []
+
+    for start_tid, in rader:
+        start_dt = datetime.fromisoformat(start_tid)
+        if start_dt >= grense:
+            prikker.append(start_dt)
+
+    return prikker
+
+
 def setup_database():
     if os.path.exists(DB_PATH):
         os.remove(DB_PATH)
@@ -88,6 +113,11 @@ def booking_trening(epost, aktivitet, start_tid):
             return
 
         bruker_id = bruker[0]
+
+        prikker_siste_30 = hent_prikker_siste_30_dager(cursor, bruker_id)
+        if len(prikker_siste_30) >= 3:
+            print("Brukeren er svartelistet og kan ikke booke timen.")
+            return
 
         # 2. Finn alle gruppetimer som matcher aktivitet + starttid
         cursor.execute("""
@@ -327,30 +357,8 @@ def svartelist_bruker(epost):
 
         bruker_id = bruker[0]
 
-        # 2 Hent alle ikke_møtt-bookinger med starttid
-        cursor.execute(
-            """
-            SELECT g.start_tid
-            FROM booker b
-            JOIN gruppetime g ON b.gruppetime_id = g.gruppetime_id
-            WHERE b.bruker_id = ?
-            AND b.booking_status = 'ikke_møtt'
-            ORDER BY g.start_tid
-            """,
-            (bruker_id,)
-        )
-
-        rader = cursor.fetchall()
-
+        prikker_siste_30 = hent_prikker_siste_30_dager(cursor, bruker_id)
         now = datetime.now()
-        grense = now - timedelta(days=30)
-
-        prikker_siste_30 = []
-
-        for rad in rader:
-            start_tid = datetime.fromisoformat(rad[0])
-            if start_tid >= grense:
-                prikker_siste_30.append(start_tid)
 
         antall_prikker = len(prikker_siste_30)
 
