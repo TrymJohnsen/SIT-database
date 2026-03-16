@@ -1,4 +1,15 @@
+import sqlite3
+
+def get_connection():
+    conn = sqlite3.connect("trening.db")
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
+#conn er databaseforbindelsen, cursor er verktøyet for å utføre SQL-kommandoer
 def setup_database():
+    conn = get_connection()
+    cursor = conn.cursor()
     print("Setup database er ikke implementert ennå.")
 
 
