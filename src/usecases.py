@@ -121,4 +121,27 @@ def mest_aktive(aar, maaned):
 
 
 def trener_sammen(epost1, epost2):
-    print(f"Sjekker om {epost1} og {epost2} trener sammen.")
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    query = """
+    SELECT COUNT(*)
+    FROM booker b1
+    JOIN booker b2 
+        ON b1.gruppetime_id = b2.gruppetime_id
+    JOIN bruker u1 
+        ON b1.bruker_id = u1.bruker_id
+    JOIN bruker u2 
+        ON b2.bruker_id = u2.bruker_id
+    WHERE u1.epost = ?
+    AND u2.epost = ?
+    AND b1.status = 'møtt'
+    AND b2.status = 'møtt'
+    """
+
+    cursor.execute(query, (epost1, epost2))
+    resultat = cursor.fetchone()[0]
+
+    print(f"{epost1} og {epost2} har trent sammen {resultat} ganger.")
+
+    conn.close()
