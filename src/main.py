@@ -32,8 +32,12 @@ def main():
         valg = input("Velg et alternativ: ").strip()
 
         if valg == "1":
-            setup_database()
-            print("Database satt opp med testdata.")
+            bekreft = input("dette vil slette og opprette databasen på nytt. Er du sikker? (ja/nei): ").strip().lower()
+            if bekreft == "ja":
+                setup_database()
+                print("Database satt opp med testdata.")
+            else: 
+                print("Avbrutt. Database ikke endret.")  
 
         elif valg == "2":
             vis_gruppetimer()
