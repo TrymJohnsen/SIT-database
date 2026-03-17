@@ -183,6 +183,23 @@ def booking_trening(epost, aktivitet, start_tid):
         antall_booket = cursor.fetchone()[0]
         status = "booket" if antall_booket < kapasitet else "venteliste"
 
+        #5.5 Sjekk for overlappende bookinger som er restriksjon i DB1 vi sier vi skal håndtere her
+        cursor.execute("""
+            SELECT g.gruppetime_id, g.start_tid, g.slutt_tid
+            FROM booker b
+            JOIN gruppetime g ON b.gruppetime_id = g.gruppetime_id
+            WHERE b.bruker_id = ?
+            AND b.booking_status IN ('booket', 'møtt', 'venteliste')
+            AND g.start_tid < ?
+            AND g.slutt_tid > ?
+        """, (bruker_id, slutt, start))
+
+        overlapp = cursor.fetchone()
+
+        if overlapp:
+            print("Brukeren er allerede booket på en annen time som overlapper.")
+            return
+
         # 6. Opprett booking
         cursor.execute("""
             INSERT INTO booker (gruppetime_id, bruker_id, booket_tid, booking_status)
