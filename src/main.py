@@ -14,6 +14,7 @@ from usecases import (
 
 def print_meny():
     print("\n--- TreningDB ---")
+    print("1. sett opp/resette database")
     print("2. Booking av gruppetime")
     print("3. Registrere oppmøte")
     print("4. Vise ukeplan")
@@ -25,11 +26,14 @@ def print_meny():
 
 
 def main():
-    setup_database()
+    # setup_database()
     while True:
         print_meny()
         valg = input("Velg et alternativ: ").strip()
 
+        if valg == "1":
+            setup_database()
+            print("Database satt opp med testdata.")
 
         if valg == "2":
             vis_gruppetimer()
