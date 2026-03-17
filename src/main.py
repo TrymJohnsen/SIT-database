@@ -35,7 +35,7 @@ def main():
             setup_database()
             print("Database satt opp med testdata.")
 
-        if valg == "2":
+        elif valg == "2":
             vis_gruppetimer()
             epost = input("\nOppgi e-post: ").strip()
             aktivitet = input("Oppgi aktivitet: ").strip().title()
