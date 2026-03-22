@@ -383,9 +383,6 @@ def svartelist_bruker(epost):
 
         antall_prikker = len(prikker_siste_30)
 
-        print(f"Bruker: {epost}")
-        print(f"Antall prikker siste 30 dager: {antall_prikker}")
-
         if antall_prikker < 3:
             print("Brukeren er ikke utestengt.")
             return
@@ -514,7 +511,6 @@ def legg_til_prikker_for_johnny():
             )
 
         conn.commit()
-        print("La til 3 ikke_møtt-bookinger for Johnny.")
 
     except Exception as e:
         conn.rollback()
