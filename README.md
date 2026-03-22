@@ -148,4 +148,3 @@ emma@stud.ntnu.no
 
 - Databasen opprettes som `trening.db` inni `src`-mappen.
 - Programmet er laget for terminalbruk og all input skrives manuelt i menyen.
-- Menyvalg 3 for oppmote er tidsavhengig. Hvis timen allerede har startet, vil programmet avvise innsjekking.
