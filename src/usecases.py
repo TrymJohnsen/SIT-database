@@ -5,15 +5,18 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 
+BASE_DIR = Path(__file__).resolve().parent
+
+
 def get_connection():
-    conn = sqlite3.connect("trening.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
-DB_PATH = "trening.db"
-SCHEMA_PATH = "schema.sql"
-SEED_PATH = "seed.sql"
+DB_PATH = BASE_DIR / "trening.db"
+SCHEMA_PATH = BASE_DIR / "schema.sql"
+SEED_PATH = BASE_DIR / "seed.sql"
 
 
 def hent_prikker_siste_30_dager(cursor, bruker_id):
