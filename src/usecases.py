@@ -523,9 +523,6 @@ def legg_til_prikker_for_johnny():
     finally:
         conn.close()
 
-
-
-
 def mest_aktive(aar, maaned):
     conn = get_connection()
     cursor = conn.cursor()

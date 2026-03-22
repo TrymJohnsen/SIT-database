@@ -109,6 +109,13 @@ INSERT INTO gruppetime (gruppetime_id, start_tid, slutt_tid, publisert_tid, sal_
 INSERT INTO bruker (bruker_id, navn, epost, mobilnr) VALUES
 (1, 'Johnny Student', 'johnny@stud.ntnu.no', '55556666'),
 (2, 'Emma Larsen',    'emma@stud.ntnu.no',   '55557777'),
-(3, 'Ali Hansen',     'ali@stud.ntnu.no',    '55558888');
+(3, 'Ali Hansen',     'ali@stud.ntnu.no',    '55558888'),
+(4, 'Mars Viner',    'marsvin@stud.ntnu.no', '55559999');
+
+-- 10) Bookinger for test av brukstilfelle 7
+INSERT INTO booker (gruppetime_id, bruker_id, booket_tid, sjekket_inn_tid, booking_status, kansellert_tid) VALUES
+(1, 4, '2026-03-15 10:00:00', '2026-03-16 16:55:00', 'møtt', NULL),
+(2, 4, '2026-03-15 10:05:00', '2026-03-16 17:55:00', 'møtt', NULL),
+(5, 4, '2026-03-16 10:00:00', '2026-03-17 18:25:00', 'møtt', NULL);
 
 COMMIT;
