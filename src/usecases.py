@@ -5,15 +5,18 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 
+BASE_DIR = Path(__file__).resolve().parent
+
+
 def get_connection():
-    conn = sqlite3.connect("trening.db")
+    conn = sqlite3.connect(DB_PATH)
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
-DB_PATH = "trening.db"
-SCHEMA_PATH = "schema.sql"
-SEED_PATH = "seed.sql"
+DB_PATH = BASE_DIR / "trening.db"
+SCHEMA_PATH = BASE_DIR / "schema.sql"
+SEED_PATH = BASE_DIR / "seed.sql"
 
 
 def hent_prikker_siste_30_dager(cursor, bruker_id):
@@ -267,14 +270,15 @@ def registrer_oppmote(epost, gruppetime_id):
             print("Oppmøte er allerede registrert.")
             return
 
-        # 3 Sjekk 5-minuttersregel
-        start_dt = datetime.fromisoformat(start_tid)
-        frist = start_dt - timedelta(minutes=5)
-        now = datetime.now()
+# denne sjekken er ikke med i usecasene fordi det skal kunne reproduserese i ettertid mend et går ikke med denne sjekken
+        # # 3 Sjekk 5-minuttersregel
+        # start_dt = datetime.fromisoformat(start_tid)
+        # frist = start_dt - timedelta(minutes=5)
+        # now = datetime.now()
 
-        if now > frist:
-            print("Oppmøte må registreres senest 5 minutter før start.")
-            return
+        # if now > frist:
+        #     print("Oppmøte må registreres senest 5 minutter før start.")
+        #     return
 
         # 4 Registrer oppmøte
         cursor.execute(
@@ -402,8 +406,7 @@ def svartelist_bruker(epost):
         conn.close()
 
 
-
-
+#AI generert hjelpefunksjon. Laget av Chatgpt
 def legg_til_prikker_for_johnny():
     conn = get_connection()
     cursor = conn.cursor()
@@ -425,21 +428,72 @@ def legg_til_prikker_for_johnny():
 
         bruker_id = bruker[0]
 
-        cursor.execute(
-            """
-            SELECT gruppetime_id
-            FROM gruppetime
-            ORDER BY start_tid DESC
-            LIMIT 3
-            """
-        )
-        gruppetimer = cursor.fetchall()
-
-        if len(gruppetimer) < 3:
-            print("Fant ikke tre gruppetimer for å registrere prikker.")
+        cursor.execute("SELECT sal_id FROM sal LIMIT 1")
+        sal = cursor.fetchone()
+        if not sal:
+            print("Fant ingen sal.")
             return
+        sal_id = sal[0]
 
-        for gruppetime_id, in gruppetimer:
+        cursor.execute("SELECT aktivitet_id FROM aktivitet LIMIT 1")
+        aktivitet = cursor.fetchone()
+        if not aktivitet:
+            print("Fant ingen aktivitet.")
+            return
+        aktivitet_id = aktivitet[0]
+
+        cursor.execute("SELECT instruktor_id FROM instruktor LIMIT 1")
+        instruktor = cursor.fetchone()
+        if not instruktor:
+            print("Fant ingen instruktør.")
+            return
+        instruktor_id = instruktor[0]
+
+        cursor.execute("SELECT COALESCE(MAX(gruppetime_id), 0) FROM gruppetime")
+        maks_id = cursor.fetchone()[0]
+
+        nye_gruppetimer = []
+
+        for i in range(1, 4):
+            gruppetime_id = maks_id + i
+            start_offset = f'-{i * 2} days'
+            publisert_offset = f'-{i * 2 + 3} days'
+
+            cursor.execute(
+                """
+                INSERT INTO gruppetime (
+                    gruppetime_id,
+                    start_tid,
+                    slutt_tid,
+                    publisert_tid,
+                    sal_id,
+                    aktivitet_id,
+                    instruktor_id
+                )
+                VALUES (
+                    ?,
+                    datetime('now', ?),
+                    datetime(datetime('now', ?), '+1 hour'),
+                    datetime('now', ?),
+                    ?,
+                    ?,
+                    ?
+                )
+                """,
+                (
+                    gruppetime_id,
+                    start_offset,
+                    start_offset,
+                    publisert_offset,
+                    sal_id,
+                    aktivitet_id,
+                    instruktor_id
+                )
+            )
+
+            nye_gruppetimer.append(gruppetime_id)
+
+        for gruppetime_id in nye_gruppetimer:
             cursor.execute(
                 """
                 INSERT INTO booker (
@@ -460,6 +514,7 @@ def legg_til_prikker_for_johnny():
             )
 
         conn.commit()
+        print("La til 3 ikke_møtt-bookinger for Johnny.")
 
     except Exception as e:
         conn.rollback()
@@ -467,8 +522,6 @@ def legg_til_prikker_for_johnny():
 
     finally:
         conn.close()
-
-
 
 def mest_aktive(aar, maaned):
     conn = get_connection()
